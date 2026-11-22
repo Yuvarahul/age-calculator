@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Age Calculator</title>
+<style>
+:root{--bg:#f3f5f2;--card:#fff;--ink:#1d2a2a;--mute:#5d6b6b;--line:#d5dcd8;--acc:#1f6f64;--accsoft:#dcefe9;--err:#b3261e;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#141b1b;--card:#1c2626;--ink:#e6efed;--mute:#9db0ad;--line:#2f3d3c;--acc:#5fc5b4;--accsoft:#21403b;--err:#ff8a80}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#141b1b;--card:#1c2626;--ink:#e6efed;--mute:#9db0ad;--line:#2f3d3c;--acc:#5fc5b4;--accsoft:#21403b;--err:#ff8a80}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;justify-content:center;padding:28px 16px}
+main{width:100%;max-width:520px}
+h1{font:600 1.7rem/1.2 "Iowan Old Style",Georgia,serif;margin:0 0 4px}
+p.sub{margin:0 0 20px;color:var(--mute)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+.row{display:grid;grid-template-columns:1fr 1fr 1.5fr;gap:10px}
+label{display:block;font-size:.85rem;color:var(--mute);margin-bottom:4px}
+input{width:100%;font:inherit;font-size:1.1rem;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+input:focus-visible,button:focus-visible{outline:3px solid var(--acc);outline-offset:1px}
+input.bad{border-color:var(--err)}
+.err{min-height:1.4em;margin:10px 0 0;color:var(--err);font-size:.92rem}
+.btns{display:flex;gap:10px;margin-top:6px}
+button{font:inherit;font-weight:600;padding:10px 18px;border-radius:8px;border:1px solid var(--acc);cursor:pointer}
+#go{background:var(--acc);color:var(--bg)}
+#clr{background:transparent;color:var(--acc)}
+#out{margin-top:18px;display:none}
+.big{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center}
+.big div{background:var(--accsoft);border-radius:10px;padding:14px 4px}
+.big b{display:block;font:600 2.4rem/1 "Iowan Old Style",Georgia,serif;color:var(--acc)}
+.big span{font-size:.88rem;color:var(--mute)}
+ul{list-style:none;margin:16px 0 0;padding:0}
+li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+li span:first-child{color:var(--mute)}
+li span:last-child{text-align:right}
+@media (prefers-reduced-motion:no-preference){#out.show{animation:f .25s ease-out}@keyframes f{from{opacity:0}to{opacity:1}}}
+</style>
+</head>
+<body>
+<main>
+<h1>Age calculator</h1>
+<p class="sub">Enter a date of birth to see your exact age in years, months and days.</p>
+<div class="card">
+<div class="row">
+<div><label for="d">Day</label><input id="d" inputmode="numeric" maxlength="2" placeholder="DD" autocomplete="bday-day"></div>
+<div><label for="m">Month</label><input id="m" inputmode="numeric" maxlength="2" placeholder="MM" autocomplete="bday-month"></div>
+<div><label for="y">Year</label><input id="y" inputmode="numeric" maxlength="4" placeholder="YYYY" autocomplete="bday-year"></div>
+</div>
+<p class="err" id="err" role="alert"></p>
+<div class="btns"><button id="go" type="button">Calculate age</button><button id="clr" type="button">Clear</button></div>
+<div id="out" aria-live="polite">
+<div class="big"><div><b id="ry">0</b><span>years</span></div><div><b id="rm">0</b><span>months</span></div><div><b id="rd">0</b><span>days</span></div></div>
+<ul>
+<li><span>Total days lived</span><span id="td"></span></li>
+<li><span>Born on a</span><span id="wd"></span></li>
+<li><span>Next birthday</span><span id="nb"></span></li>
+</ul>
+</div>
+</div>
+</main>
+<script>
+(function(){
+var $=function(id){return document.getElementById(id)};
+var MS=86400000;
+function dim(y,m){return new Date(Date.UTC(y,m+1,0)).getUTCDate()} // m is 0-based
+function utc(y,m,d){return Date.UTC(y,m,d)}
+
+// Add whole months to a birth date, clamping the day (e.g. 31 Jan + 1 month = 28/29 Feb)
+function addMonths(by,bm,bd,n){
+  var t=bm+n, y=by+Math.floor(t/12), m=((t%12)+12)%12;
+  return utc(y,m,Math.min(bd,dim(y,m)));
+}
+
+function calcAge(by,bm,bd,ty,tm,td){ // months 0-based
+  var today=utc(ty,tm,td);
+  var months=(ty-by)*12+(tm-bm);
+  if(addMonths(by,bm,bd,months)>today) months--;
+  var anchor=addMonths(by,bm,bd,months);
+  return {years:Math.floor(months/12),months:months%12,days:Math.round((today-anchor)/MS),
+          total:Math.round((today-utc(by,bm,bd))/MS)};
+}
+
+function nextBirthday(by,bm,bd,ty,tm,td){
+  var today=utc(ty,tm,td), y=ty, d;
+  for(;;){ // 29 Feb birthdays fall on 28 Feb in non-leap years
+    d=utc(y,bm,Math.min(bd,dim(y,bm)));
+    if(d>=today)break; y++;
+  }
+  return {date:new Date(d),left:Math.round((d-today)/MS)};
+}
+
+function validate(ds,ms,ys,now){
+  var bad=[];
+  if(!ds||!ms||!ys)return {msg:"Fill in the day, month and year.",bad:[!ds&&"d",!ms&&"m",!ys&&"y"].filter(Boolean)};
+  if(!/^\d+$/.test(ds)||!/^\d+$/.test(ms)||!/^\d{4}$/.test(ys))
+    return {msg:"Use numbers only, with a 4-digit year (for example 2001).",bad:["d","m","y"]};
+  var d=+ds,m=+ms,y=+ys;
+  if(y<1900)return {msg:"Enter a year from 1900 onwards.",bad:["y"]};
+  if(m<1||m>12)return {msg:"Month must be between 1 and 12.",bad:["m"]};
+  if(d<1||d>dim(y,m-1))return {msg:"That date does not exist: "+new Date(Date.UTC(y,m-1,1)).toLocaleString("en",{month:"long",timeZone:"UTC"})+" "+y+" has "+dim(y,m-1)+" days.",bad:["d"]};
+  if(utc(y,m-1,d)>utc(now.getFullYear(),now.getMonth(),now.getDate()))
+    return {msg:"Date of birth cannot be in the future.",bad:["d","m","y"]};
+  return {ok:true,d:d,m:m,y:y};
+}
+
+function plural(n,w){return n.toLocaleString("en-IN")+" "+w+(n===1?"":"s")}
+
+function run(){
+  ["d","m","y"].forEach(function(k){$(k).classList.remove("bad")});
+  var r=validate($("d").value.trim(),$("m").value.trim(),$("y").value.trim(),new Date());
+  if(!r.ok){
+    $("err").textContent=r.msg; $("out").style.display="none"; $("out").classList.remove("show");
+    r.bad.forEach(function(k){$(k).classList.add("bad")});
+    if(r.bad[0])$(r.bad[0]).focus();
+    return;
+  }
+  $("err").textContent="";
+  var n=new Date(), ty=n.getFullYear(), tm=n.getMonth(), td=n.getDate();
+  var a=calcAge(r.y,r.m-1,r.d,ty,tm,td), nb=nextBirthday(r.y,r.m-1,r.d,ty,tm,td);
+  $("ry").textContent=a.years; $("rm").textContent=a.months; $("rd").textContent=a.days;
+  $("td").textContent=plural(a.total,"day");
+  $("wd").textContent=new Date(Date.UTC(r.y,r.m-1,r.d)).toLocaleString("en",{weekday:"long",timeZone:"UTC"});
+  $("nb").textContent=(nb.left===0?"Today, happy birthday!":nb.date.toLocaleString("en",{day:"numeric",month:"long",year:"numeric",timeZone:"UTC"})+" (in "+plural(nb.left,"day")+")");
+  $("out").style.display="block"; $("out").classList.remove("show"); void $("out").offsetWidth; $("out").classList.add("show");
+}
+
+$("go").addEventListener("click",run);
+$("clr").addEventListener("click",function(){
+  ["d","m","y"].forEach(function(k){$(k).value="";$(k).classList.remove("bad")});
+  $("err").textContent=""; $("out").style.display="none"; $("d").focus();
+});
+["d","m","y"].forEach(function(k){
+  $(k).addEventListener("keydown",function(e){if(e.key==="Enter")run()});
+  $(k).addEventListener("input",function(){
+    var v=this.value.replace(/\D/g,""); this.value=v;
+    if(k==="d"&&v.length===2)$("m").focus();
+    if(k==="m"&&v.length===2)$("y").focus();
+  });
+});
+})();
+</script>
+</body>
+</html>
